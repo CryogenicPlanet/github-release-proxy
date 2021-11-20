@@ -34,6 +34,7 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, err)
+		return
 	}
 
 	tokenCtx := context.Background()
@@ -47,14 +48,17 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	repository, resp, err := tokenClient.Repositories.GetLatestRelease(tokenCtx, owner, repo)
 
-	if err != nil {
-		fmt.Println(err)
+	if err != nil || resp.StatusCode >= 400 {
+		fmt.Println("Failed to get latest release", resp.StatusCode, err)
 		w.WriteHeader(resp.StatusCode)
 		fmt.Fprintln(w, err)
+		return
 	}
 
 	for _, asset := range repository.Assets {
-		if strings.Contains(*asset.BrowserDownloadURL, os) && strings.Contains(*asset.BrowserDownloadURL, arch) {
+		// fmt.Println("Repo asset", *asset.BrowserDownloadURL)
+
+		if strings.Contains(strings.ToLower(*asset.BrowserDownloadURL), strings.ToLower(os)) && strings.Contains(strings.ToLower(*asset.BrowserDownloadURL), strings.ToLower(arch)) {
 			// Correct asset
 
 			fmt.Println(*asset.URL)
@@ -76,6 +80,9 @@ func UpdateHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintln(w, err)
 				return
 			}
+
+			// w.Header().Add("Content-Type", "application/octet-stream")
+			// w.Header().Add("Content-Disposition", "attachment; filename="+repo+os+arch+".tar.gz")
 
 			for key, values := range res.Header {
 				for _, val := range values {
